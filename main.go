@@ -39,4 +39,5 @@ func BindRoutes(s server.Server, r *mux.Router) {
 	r.HandleFunc("/", handlers.HomeHandler(s)).Methods(http.MethodGet)
 
 	r.HandleFunc("/signup", handlers.SignUpHandler(s)).Methods(http.MethodPost)
+	r.HandleFunc("/login", handlers.LoginHandler(s)).Methods(http.MethodPost)
 }
