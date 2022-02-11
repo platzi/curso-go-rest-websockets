@@ -6,19 +6,24 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt"
+	"github.com/gorilla/mux"
 	"github.com/segmentio/ksuid"
 	"platzi.com/go/rest-ws/models"
 	"platzi.com/go/rest-ws/repository"
 	"platzi.com/go/rest-ws/server"
 )
 
-type InsertPostRequest struct {
+type UpsertPostRequest struct {
 	PostContent string `json:"postContent"`
 }
 
 type PostResponse struct {
 	Id          string `json:"id"`
 	PostContent string `json:"postContent"`
+}
+
+type PostDeletedResponse struct {
+	Message string `json:"message"`
 }
 
 func InsertPostHandler(s server.Server) http.HandlerFunc {
@@ -32,7 +37,7 @@ func InsertPostHandler(s server.Server) http.HandlerFunc {
 			return
 		}
 		if claims, ok := token.Claims.(*models.AppClaims); ok && token.Valid {
-			var postRequest = InsertPostRequest{}
+			var postRequest = UpsertPostRequest{}
 			err := json.NewDecoder(r.Body).Decode(&postRequest)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -64,4 +69,84 @@ func InsertPostHandler(s server.Server) http.HandlerFunc {
 		}
 	}
 
+}
+
+func GetPostByIDHandler(s server.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		params := mux.Vars(r)
+		post, err := repository.GetPostByID(r.Context(), params["postId"])
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(post)
+
+	}
+}
+
+func DeletePostByIdHandler(s server.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		params := mux.Vars(r)
+		tokenString := strings.TrimSpace(r.Header.Get("Authorization"))
+		token, err := jwt.ParseWithClaims(tokenString, &models.AppClaims{}, func(token *jwt.Token) (interface{}, error) {
+			return []byte(s.Config().JWTSecret), nil
+		})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+		if claims, ok := token.Claims.(*models.AppClaims); ok && token.Valid {
+			err = repository.DeletePost(r.Context(), params["postId"], claims.UserId)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(PostDeletedResponse{
+				Message: "Post deleted",
+			})
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+func UpdatePostByIdHandler(s server.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		params := mux.Vars(r)
+		tokenString := strings.TrimSpace(r.Header.Get("Authorization"))
+		token, err := jwt.ParseWithClaims(tokenString, &models.AppClaims{}, func(token *jwt.Token) (interface{}, error) {
+			return []byte(s.Config().JWTSecret), nil
+		})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+		if claims, ok := token.Claims.(*models.AppClaims); ok && token.Valid {
+			var postRequest = UpsertPostRequest{}
+			err := json.NewDecoder(r.Body).Decode(&postRequest)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			post := models.Post{
+				PostContent: postRequest.PostContent,
+				Id:          params["postId"],
+			}
+			err = repository.UpdatePost(r.Context(), &post, claims.UserId)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(PostDeletedResponse{
+				Message: "Post Update",
+			})
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
 }
