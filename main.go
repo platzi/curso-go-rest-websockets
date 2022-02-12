@@ -57,5 +57,6 @@ func BindRoutes(s server.Server, r *mux.Router) {
 	r.HandleFunc("/api/v1/posts/{postId}", handlers.GetPostByIDHandler(s)).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/posts", handlers.ListPostHandler(s)).Methods(http.MethodGet)
 
+	go hub.Run()
 	r.HandleFunc("/ws", hub.HandleWebSocket)
 }
