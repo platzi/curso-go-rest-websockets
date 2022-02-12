@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"sync"
@@ -35,6 +36,15 @@ func (hub *Hub) Run() {
 			hub.onConnect(client)
 		case client := <-hub.unregister:
 			hub.onDisconnect(client)
+		}
+	}
+}
+
+func (hub *Hub) Broadcast(message interface{}, ignore *Client) {
+	data, _ := json.Marshal(message)
+	for _, client := range hub.clients {
+		if client != ignore {
+			client.outbound <- data
 		}
 	}
 }
